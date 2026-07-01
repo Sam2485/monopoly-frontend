@@ -1,0 +1,6 @@
+[
+  { "id": 1, "title": "DYP pages pay 200", "action": "PAY_MONEY", "amount": 200 },
+  { "id": 2, "title": "Buy Apron 500 ", "action": "PAY_MONEY", "amount": 500 },
+  { "id": 3, "title": "Buy Calculator 1200", "action": "PAY_MONEY", "amount": 1200 },
+  { "id": 4, "title": "Exam fees 1000", "action": "PAY_MONEY", "amount": 1000 }
+]

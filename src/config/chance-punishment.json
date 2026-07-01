@@ -1,0 +1,6 @@
+[
+  { "id": 1, "title": "Dengue malaria test 1500", "action": "PAY_MONEY", "amount": 1500 },
+  { "id": 2, "title": "Light Bill 2500", "action": "PAY_MONEY", "amount": 2500 },
+  { "id": 3, "title": "Go to Jail", "action": "GO_TO_JAIL", "amount": 0 },
+  { "id": 4, "title": "Matka Futala 200", "action": "PAY_MONEY", "amount": 200 }
+]
