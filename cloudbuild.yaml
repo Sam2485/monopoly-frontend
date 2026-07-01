@@ -1,0 +1,55 @@
+steps:
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud artifacts repositories describe "${_REPOSITORY}" --location="${_REGION}" >/dev/null 2>&1 ||
+        gcloud artifacts repositories create "${_REPOSITORY}" \
+          --repository-format=docker \
+          --location="${_REGION}" \
+          --description="Cloud Run Docker images"
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --build-arg
+      - VITE_BASE_API_URL=${_VITE_BASE_API_URL}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --port
+      - '8080'
+      - --set-env-vars
+      - VITE_BASE_API_URL=${_VITE_BASE_API_URL}
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:$SHORT_SHA
+
+substitutions:
+  _REGION: asia-south1
+  _REPOSITORY: cloud-run
+  _SERVICE: vyapar-frontend
+  _VITE_BASE_API_URL: https://YOUR_BACKEND_CLOUD_RUN_URL
+
+options:
+  logging: CLOUD_LOGGING_ONLY

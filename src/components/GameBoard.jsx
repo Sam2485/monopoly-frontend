@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect } from 'react';
+import { useContext, useState } from 'react';
 import { GameContext } from '../context/GameContext';
 import { boardData, propertyCatalogById } from '../utils/boardData';
 import { 
@@ -26,8 +26,8 @@ export default function GameBoard() {
 
     const [activeTab, setActiveTab] = useState('actions'); // 'actions' | 'assets' | 'logs'
     const [selectedProperty, setSelectedProperty] = useState(null);
-    const [selectedPropImgError, setSelectedPropImgError] = useState(false);
-    const [unownedPropImgError, setUnownedPropImgError] = useState(false);
+    const [selectedPropImgError, setSelectedPropImgError] = useState(null);
+    const [unownedPropImgError, setUnownedPropImgError] = useState(null);
 
     const getPropertyImagePath = (name, type) => {
         const value = name || type;
@@ -36,6 +36,11 @@ export default function GameBoard() {
         if (cleanName === 'bangalore') cleanName = 'bengaluru';
         return `/images/${cleanName}.png`;
     };
+
+    const getPropertyImageKey = (property) => (
+        property?.propertyId ?? property?.propertyName ?? property?.name ?? ''
+    );
+
     if (!game) return null;
 
     const me = game.players.find(p => p.username?.toLowerCase() === user?.username?.toLowerCase());
@@ -91,6 +96,8 @@ export default function GameBoard() {
         turnPlayerProperty &&
         !turnPlayerProperty.ownerId
     );
+    const unownedPropImgKey = getPropertyImageKey(turnPlayerProperty);
+    const isUnownedPropImgError = unownedPropImgError === unownedPropImgKey;
     // Color mapper for board properties
     const groupColors = {
         'DARK_BLUE': 'bg-blue-600',
@@ -173,6 +180,8 @@ export default function GameBoard() {
             ...game.properties.find(p => p.propertyId === selectedProperty.propertyId)
           }
         : null;
+    const selectedPropImgKey = getPropertyImageKey(selectedProperty);
+    const isSelectedPropImgError = selectedPropImgError === selectedPropImgKey;
 
     const ownedInGroup = liveSelectedProperty
         ? game.properties.filter(p => 
@@ -263,14 +272,6 @@ export default function GameBoard() {
     const getPlayersOnTile = (pos) => {
         return game.players.filter(p => p.position === pos && p.status !== 'BANKRUPT');
     };
-
-    useEffect(() => {
-        setSelectedPropImgError(false);
-    }, [selectedProperty?.propertyId]);
-
-    useEffect(() => {
-        setUnownedPropImgError(false);
-    }, [turnPlayerProperty?.propertyId]);
 
     return (
         <div className="min-h-screen bg-transparent p-4 md:p-8 flex flex-col items-center justify-center w-full">
@@ -375,10 +376,10 @@ export default function GameBoard() {
                             </div>
 
                             {/* City Image (1:1 square aspect ratio layout) */}
-                            {!unownedPropImgError ? (
+                            {!isUnownedPropImgError ? (
                                 <img 
                                     src={getPropertyImagePath(turnPlayerProperty.name || turnPlayerProperty.propertyName)} 
-                                    onError={() => setUnownedPropImgError(true)}
+                                    onError={() => setUnownedPropImgError(unownedPropImgKey)}
                                     className="w-full h-36 object-cover border-b border-slate-800/60"
                                     alt={turnPlayerProperty.name || turnPlayerProperty.propertyName}
                                 />
@@ -783,10 +784,10 @@ export default function GameBoard() {
                         </div>
 
                         {/* City Image (1:1 square aspect ratio layout) */}
-                        {!selectedPropImgError ? (
+                        {!isSelectedPropImgError ? (
                             <img 
                                 src={getPropertyImagePath(selectedProperty.propertyName || selectedProperty.name)} 
-                                onError={() => setSelectedPropImgError(true)}
+                                onError={() => setSelectedPropImgError(selectedPropImgKey)}
                                 className="w-full h-48 object-cover border-b border-slate-800/60"
                                 alt={selectedProperty.propertyName || selectedProperty.name}
                             />

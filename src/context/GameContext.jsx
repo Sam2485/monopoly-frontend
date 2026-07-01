@@ -4,12 +4,10 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import toast from 'react-hot-toast';
 import { boardData, propertyCatalogById } from '../utils/boardData';
+import { API_BASE, WS_BASE } from '../config/runtimeConfig';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const GameContext = createContext();
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:9090/api/v1';
-const WS_BASE = import.meta.env.VITE_WS_URL || 'http://localhost:9090/ws';
 
 const playSound = (soundName) => {
     try {

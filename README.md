@@ -1,16 +1,48 @@
-# React + Vite
+# Vyapar Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend configured for Google Cloud Run.
 
-Currently, two official plugins are available:
+## Environment
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The app reads this variable:
 
-## React Compiler
+- `VITE_BASE_API_URL`: backend service URL, for example `https://BACKEND_URL`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+For local development, update `.env` if your backend is not running on `http://localhost:9090`.
 
-## Expanding the ESLint configuration
+For Cloud Run, set the same variable on the Cloud Run service. It is written to `/env.js` when the container starts, so you can update the backend URL without rebuilding the frontend image. The frontend automatically derives REST calls from `/api/v1` and SockJS/STOMP from `/ws`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Local Commands
+
+```sh
+npm install
+npm run dev
+npm run build
+```
+
+## Docker
+
+```sh
+docker build -t vyapar-frontend .
+docker run --rm -p 8080:8080 --env-file .env vyapar-frontend
+```
+
+Open `http://localhost:8080`.
+
+## Cloud Run Deployment
+
+Enable the required GCP APIs once per project:
+
+```sh
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+```
+
+Replace `YOUR_BACKEND_CLOUD_RUN_URL` in `cloudbuild.yaml` or override the substitutions from the command line:
+
+```sh
+gcloud builds submit \
+  --config cloudbuild.yaml \
+  --substitutions _REGION=asia-south1,_REPOSITORY=cloud-run,_SERVICE=vyapar-frontend,_VITE_BASE_API_URL=https://YOUR_BACKEND_CLOUD_RUN_URL
+```
+
+The Docker container listens on Cloud Run's `$PORT` and defaults to `8080`.

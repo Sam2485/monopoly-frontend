@@ -1,21 +1,21 @@
-# Build stage
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# Declare build arguments for GCP deployment
-ARG VITE_API_URL
-ARG VITE_WS_URL
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_WS_URL=$VITE_WS_URL
+ARG VITE_BASE_API_URL
+ENV VITE_BASE_API_URL=$VITE_BASE_API_URL
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
-# Production stage
 FROM nginx:alpine
+ENV PORT=8080
+
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+COPY docker/nginx.conf /etc/nginx/templates/default.conf.template
+COPY docker/30-env-js.sh /docker-entrypoint.d/30-env-js.sh
+RUN chmod +x /docker-entrypoint.d/30-env-js.sh
+
+EXPOSE 8080
 CMD ["nginx", "-g", "daemon off;"]
