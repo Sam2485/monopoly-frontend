@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useRef } from 'react';
+import { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -44,10 +44,15 @@ export const GameProvider = ({ children }) => {
     const roomSubscriptionRef = useRef(null);
     const gameSubscriptionRef = useRef(null);
     const gameRef = useRef(null);
+    const roomRef = useRef(null);
 
     useEffect(() => {
         gameRef.current = game;
     }, [game]);
+
+    useEffect(() => {
+        roomRef.current = room;
+    }, [room]);
 
     useEffect(() => {
         const checkActiveRoom = async () => {
@@ -225,10 +230,18 @@ export const GameProvider = ({ children }) => {
                 break;
             case 'RENT_PAID': {
                 playSound('pay_rent.mp3');
-                const payer = gameRef.current?.players.find(pl => String(pl.playerId).toLowerCase() === String(payload.fromPlayer).toLowerCase());
-                const payerTile = payer ? boardData[Number(payer.position)] : null;
-                const propName = payerTile?.property ? payerTile.property.name : '';
-                const propSuffix = propName ? ` for ${propName}` : '';
+                const prop = payload.propertyId !== undefined ? propertyCatalogById[payload.propertyId] : null;
+                const propName = prop ? prop.name : '';
+                
+                // Fallback in case propertyId is missing
+                let finalPropName = propName;
+                if (!finalPropName) {
+                    const payer = gameRef.current?.players.find(pl => String(pl.playerId).toLowerCase() === String(payload.fromPlayer).toLowerCase());
+                    const payerTile = payer ? boardData[Number(payer.position)] : null;
+                    finalPropName = payerTile?.property ? payerTile.property.name : '';
+                }
+                
+                const propSuffix = finalPropName ? ` for ${finalPropName}` : '';
                 addLog(`${getPlayerName(payload.fromPlayer)} paid rent of ₹${payload.amount} to ${getPlayerName(payload.toPlayer)}${propSuffix}`);
                 break;
             }
@@ -502,18 +515,26 @@ export const GameProvider = ({ children }) => {
     };
 
     const leaveRoom = async () => {
-        if (!room) return;
-        try {
-            await getAxios().delete(`/rooms/${room.roomId}/leave`);
+        if (!room) {
             disconnectWebSocket();
             setRoom(null);
             setGame(null);
             setLogs([]);
             setCurrentScreen('home');
+            return;
+        }
+        try {
+            await getAxios().delete(`/rooms/${room.roomId}/leave`);
             toast.success('Left room');
         } catch (e) {
             console.error(e);
             toast.error(e.response?.data?.message || 'Failed to leave room');
+        } finally {
+            disconnectWebSocket();
+            setRoom(null);
+            setGame(null);
+            setLogs([]);
+            setCurrentScreen('home');
         }
     };
 
@@ -526,6 +547,26 @@ export const GameProvider = ({ children }) => {
             toast.error(e.response?.data?.message || 'Failed to change ready status');
         }
     };
+
+    const updateTokenColor = useCallback(async (hexColor) => {
+        if (!roomRef.current) return;
+        
+        // Find current player in the room state
+        const meInRoom = roomRef.current.players.find(p => p.username === user?.username);
+        // If current color already matches, short-circuit to prevent infinite loops/redundant requests!
+        if (meInRoom && meInRoom.tokenColor === hexColor) {
+            return;
+        }
+
+        try {
+            await getAxios().put(`/rooms/${roomRef.current.roomId}/token-color`, null, {
+                params: { tokenColor: hexColor }
+            });
+        } catch (e) {
+            console.error(e);
+            toast.error(e.response?.data?.message || 'Failed to update token color');
+        }
+    }, [user?.username]);
 
     const startGame = async () => {
         if (!room) return;
@@ -554,6 +595,22 @@ export const GameProvider = ({ children }) => {
                 }));
             }
             setGame(state);
+
+            // Fetch game transactions to populate the action logs
+            try {
+                const historyRes = await getAxios().get(`/games/${gameId}/transactions`);
+                const history = historyRes.data.data;
+                if (history && history.length > 0) {
+                    const mappedLogs = history.map(t => {
+                        const time = t.createdAt ? new Date(t.createdAt).toLocaleTimeString() : new Date().toLocaleTimeString();
+                        return `[${time}] ${t.description}`;
+                    });
+                    setLogs(mappedLogs.slice(-40));
+                }
+            } catch (historyErr) {
+                console.error('Failed to load transaction logs:', historyErr);
+            }
+
             setCurrentScreen(prevScreen => {
                 if (prevScreen !== 'game') {
                     addLog('Loaded game state. Let the match begin!');
@@ -713,6 +770,7 @@ export const GameProvider = ({ children }) => {
             joinRoom,
             leaveRoom,
             toggleReady,
+            updateTokenColor,
             startGame,
             sendGameAction,
             proposeTrade,

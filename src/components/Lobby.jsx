@@ -56,7 +56,7 @@ function TokenCircle({ color, selected, onClick, size = 64 }) {
 }
 
 export default function Lobby() {
-    const { user, room, leaveRoom, toggleReady, startGame } = useContext(GameContext);
+    const { user, room, leaveRoom, toggleReady, updateTokenColor, startGame } = useContext(GameContext);
 
     // Token picker state — persisted per username
     const storageKey = `vyapar_token_${user?.username}`;
@@ -71,7 +71,10 @@ export default function Lobby() {
         localStorage.setItem(storageKey, selectedToken.id);
         // Also save the hex so GameBoard can read it
         localStorage.setItem(`vyapar_token_hex_${user?.username}`, selectedToken.hex);
-    }, [selectedToken, storageKey, user?.username]);
+        if (updateTokenColor) {
+            updateTokenColor(selectedToken.hex);
+        }
+    }, [selectedToken, storageKey, user?.username, updateTokenColor]);
 
     if (!room) return null;
 
@@ -138,8 +141,7 @@ export default function Lobby() {
                     <div className="space-y-4 mb-8">
                         <p className="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Players Joined ({room.players.length})</p>
                         {room.players.map((player) => {
-                            const savedHex = localStorage.getItem(`vyapar_token_hex_${player.username}`);
-                            const tokenColor = savedHex || '#a855f7';
+                            const tokenColor = player.tokenColor || '#a855f7';
                             return (
                                 <div key={player.playerId} className="glass flex items-center justify-between rounded-xl p-4 transition-all hover:border-slate-600/50">
                                     <div className="flex items-center gap-4">

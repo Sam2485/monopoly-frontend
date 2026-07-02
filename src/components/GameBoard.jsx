@@ -1367,9 +1367,21 @@ export default function GameBoard() {
 
                                         {/* Latest Log Display */}
                                         {logs.length > 0 && (
-                                            <div className="w-full mt-2 p-2.5 rounded-lg border border-purple-500/20 bg-purple-950/20 text-left text-[10px] font-mono text-purple-300 shadow-sm shrink-0">
-                                                <span className="text-purple-400 font-black mr-1.5">Latest Action:</span>
-                                                {logs[logs.length - 1].replace(/^\[.*?\]\s*/, '')}
+                                            <div 
+                                                className="w-full mt-2 p-3.5 rounded-xl border border-purple-500/40 bg-purple-950/30 text-left text-xs md:text-sm font-semibold text-purple-200 shadow-[0_0_20px_rgba(168,85,247,0.3)] shrink-0 flex flex-col gap-2 transition-all duration-200"
+                                                style={{ textShadow: '0 0 10px rgba(168,85,247,0.4)' }}
+                                            >
+                                                {logs
+                                                    .filter(log => !log.includes(' rolled '))
+                                                    .slice(-3)
+                                                    .reverse()
+                                                    .map((log, index) => (
+                                                        <div key={index} className="flex gap-2 items-start leading-relaxed">
+                                                            <span className="text-purple-400 font-extrabold">•</span>
+                                                            <span>{log.indexOf(']') !== -1 ? log.substring(log.indexOf(']') + 1).trim() : log}</span>
+                                                        </div>
+                                                    ))
+                                                }
                                             </div>
                                         )}
                                     </div>
