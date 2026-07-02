@@ -629,7 +629,7 @@ export default function GameBoard() {
                                             {p.status === 'BANKRUPT' ? (
                                                 <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Bankrupt</span>
                                             ) : (
-                                                <span className="text-sm font-bold text-purple-400">₹{p.balance.toLocaleString()}</span>
+                                                <span className="text-sm font-bold text-purple-400">₹{(p.balance ?? 0).toLocaleString()}</span>
                                             )}
                                         </div>
                                     </div>
@@ -705,7 +705,7 @@ export default function GameBoard() {
                                                     {trade.offeredCash > 0 && (
                                                         <div className="flex justify-between">
                                                             <span>• Cash:</span>
-                                                            <span className="font-bold text-emerald-400">₹{trade.offeredCash.toLocaleString()}</span>
+                                                            <span className="font-bold text-emerald-400">₹{(trade.offeredCash ?? 0).toLocaleString()}</span>
                                                         </div>
                                                     )}
                                                     {trade.offeredProperties.length > 0 && (
@@ -730,7 +730,7 @@ export default function GameBoard() {
                                                     {trade.requestedCash > 0 && (
                                                         <div className="flex justify-between">
                                                             <span>• Cash:</span>
-                                                            <span className="font-bold text-amber-400">₹{trade.requestedCash.toLocaleString()}</span>
+                                                            <span className="font-bold text-amber-400">₹{(trade.requestedCash ?? 0).toLocaleString()}</span>
                                                         </div>
                                                     )}
                                                     {trade.requestedProperties.length > 0 && (
@@ -917,6 +917,15 @@ export default function GameBoard() {
                                                 onError={e => { e.target.style.display = 'none'; }}
                                                 alt=""
                                             />
+                                            {(tileInfo.type === 'REST_ROOM' || tileInfo.type === 'CLUB') && (
+                                                <div className="absolute inset-x-0 bottom-2.5 flex justify-center z-10 pointer-events-none">
+                                                    <span className="text-[9px] font-black uppercase text-white bg-slate-950/80 px-2 py-0.5 rounded-full border border-white/10 tracking-widest shadow-md">
+                                                        {tileInfo.type === 'REST_ROOM' 
+                                                            ? `Rest Room (₹${(game.restRoomPool ?? 0).toLocaleString()})` 
+                                                            : `Club (₹${(gameRules?.clubFee ?? 200).toLocaleString()})`}
+                                                    </span>
+                                                </div>
+                                            )}
                                             {playersHere.length > 0 && (
                                                 <div className="absolute inset-0 flex items-center justify-center z-20">
                                                     <div className="flex -space-x-2">
@@ -1611,14 +1620,14 @@ export default function GameBoard() {
                             {/* Offered Cash */}
                             <div className="space-y-2 text-left">
                                 <div className="flex justify-between text-xs">
-                                    <span className="text-purple-400 font-medium">Offered Cash (Your balance: ₹{me.balance.toLocaleString()})</span>
-                                    <span className="font-bold text-white">₹{offeredCash.toLocaleString()}</span>
+                                    <span className="text-purple-400 font-medium">Offered Cash (Your balance: ₹{(me?.balance ?? 0).toLocaleString()})</span>
+                                    <span className="font-bold text-white">₹{(offeredCash ?? 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <input
                                         type="range"
                                         min="0"
-                                        max={me.balance}
+                                        max={me?.balance ?? 0}
                                         step="100"
                                         value={offeredCash}
                                         onChange={(e) => setOfferedCash(Number(e.target.value))}
@@ -1627,10 +1636,10 @@ export default function GameBoard() {
                                     <input
                                         type="number"
                                         min="0"
-                                        max={me.balance}
+                                        max={me?.balance ?? 0}
                                         value={offeredCash}
                                         onChange={(e) => {
-                                            const val = Math.min(me.balance, Math.max(0, Number(e.target.value)));
+                                            const val = Math.min(me?.balance ?? 0, Math.max(0, Number(e.target.value)));
                                             setOfferedCash(val);
                                         }}
                                         className="w-24 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white font-mono text-right"
@@ -1641,8 +1650,8 @@ export default function GameBoard() {
                             {/* Requested Cash */}
                             <div className="space-y-2 text-left">
                                 <div className="flex justify-between text-xs">
-                                    <span className="text-amber-400 font-medium">Requested Cash ({tradePartner.username}'s balance: ₹{tradePartner.balance.toLocaleString()})</span>
-                                    <span className="font-bold text-white">₹{requestedCash.toLocaleString()}</span>
+                                    <span className="text-amber-400 font-medium">Requested Cash ({tradePartner.username}'s balance: ₹{(tradePartner?.balance ?? 0).toLocaleString()})</span>
+                                    <span className="font-bold text-white">₹{(requestedCash ?? 0).toLocaleString()}</span>
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <input

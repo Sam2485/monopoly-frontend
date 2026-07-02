@@ -177,7 +177,7 @@ export const GameProvider = ({ children }) => {
                 // Detect passing START (to position < from position, or exactly 0)
                 if (oldPosition !== undefined && (payload.to < oldPosition || payload.to === 0)) {
                     playSound('pass_start.mp3');
-                    addLog(`🎁 ${getPlayerName(payload.playerId)} passed START and collected ₹${gameRules.passStartReward.toLocaleString()}!`);
+                    addLog(`🎁 ${getPlayerName(payload.playerId)} passed START and collected ₹${(gameRules?.passStartReward ?? 1500).toLocaleString()}!`);
                 }
                 break;
             }
