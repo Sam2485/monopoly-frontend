@@ -1,6 +1,7 @@
 import { useContext, useState, useEffect } from 'react';
 import { GameContext } from '../context/GameContext';
 import { boardData, propertyCatalogById } from '../utils/boardData';
+import gameRules from '../config/game-rules.json';
 import { 
     Dice5, 
     Home as HomeIcon, 
