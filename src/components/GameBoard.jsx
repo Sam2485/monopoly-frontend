@@ -407,7 +407,9 @@ export default function GameBoard() {
     const getPlayerRawColor = (ownerId) => {
         if (!ownerId) return null;
         const ownerPlayer = game.players.find(p => p.playerId === ownerId);
-        if (ownerPlayer?.username) {
+        if (!ownerPlayer) return null;
+        if (ownerPlayer.tokenColor) return ownerPlayer.tokenColor;
+        if (ownerPlayer.username) {
             const saved = localStorage.getItem(`vyapar_token_hex_${ownerPlayer.username}`);
             if (saved) return saved;
         }
@@ -2054,12 +2056,15 @@ export default function GameBoard() {
                                 Cancel
                             </button>
                             <button
+                                disabled={actionPending}
                                 onClick={async () => {
+                                    if (actionPending) return;
                                     try {
                                         if (offeredCash === 0 && requestedCash === 0 && offeredProperties.length === 0 && requestedProperties.length === 0) {
                                             toast.error('Trade cannot be empty');
                                             return;
                                         }
+                                        setActionPending(true);
                                         await proposeTrade(
                                             tradePartner.playerId,
                                             offeredProperties,
@@ -2071,11 +2076,13 @@ export default function GameBoard() {
                                         setTradePartner(null);
                                     } catch (err) {
                                         console.error(err);
+                                    } finally {
+                                        setActionPending(false);
                                     }
                                 }}
-                                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg cursor-pointer transition-colors"
+                                className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white shadow-lg cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Propose Trade
+                                {actionPending ? 'Proposing...' : 'Propose Trade'}
                             </button>
                         </div>
                     </div>
