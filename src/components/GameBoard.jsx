@@ -16,46 +16,27 @@ import {
 import toast from 'react-hot-toast';
 
 // ── Board token — the cute circle-with-eyes badge that moves on the board ────
-function BoardToken({ username, size = 22 }) {
-    const tokenHex = localStorage.getItem(`vyapar_token_hex_${username}`) || '#a855f7';
+function BoardToken({ username, tokenColor, size = 22 }) {
+    const tokenHex = tokenColor || localStorage.getItem(`vyapar_token_hex_${username}`) || '#a855f7';
     const eyeOuter = Math.round(size * 0.32);
     const eyeInner = Math.round(size * 0.18);
     return (
-        <>
-            <style>{`
-                @keyframes tokenEnter {
-                    0% {
-                        transform: scale(0.3) translateY(-10px);
-                        opacity: 0;
-                    }
-                    70% {
-                        transform: scale(1.15) translateY(2px);
-                    }
-                    100% {
-                        transform: scale(1) translateY(0);
-                        opacity: 1;
-                    }
-                }
-                .token-anim {
-                    animation: tokenEnter 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-                }
-            `}</style>
-            <div
-                title={username}
-                className="token-anim"
-                style={{
-                    width: size,
-                    height: size,
-                    backgroundColor: tokenHex,
-                    borderRadius: '50%',
-                    boxShadow: `0 0 8px 2px ${tokenHex}99, 0 0 0 1.5px rgba(0,0,0,0.8)`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    position: 'relative',
-                }}
-            >
+        <div
+            title={username}
+            className=""
+            style={{
+                width: size,
+                height: size,
+                backgroundColor: tokenHex,
+                borderRadius: '50%',
+                boxShadow: `0 0 8px 2px ${tokenHex}99, 0 0 0 1.5px rgba(0,0,0,0.8)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                position: 'relative',
+            }}
+        >
             {/* Eyes */}
             <div style={{ display: 'flex', gap: Math.round(size * 0.08), alignItems: 'center', marginTop: Math.round(size * 0.05) }}>
                 {[0, 1].map(i => (
@@ -79,7 +60,6 @@ function BoardToken({ username, size = 22 }) {
                 ))}
             </div>
         </div>
-        </>
     );
 }
 
@@ -198,6 +178,8 @@ export default function GameBoard() {
     useEffect(() => {
         if (!game?.players) return;
 
+        const delay = getAnimStepDelay();
+
         const timer = setTimeout(() => {
             let movedAny = false;
             setAnimatedPositions(prev => {
@@ -206,17 +188,23 @@ export default function GameBoard() {
                     const target = p.position;
                     const current = next[p.playerId];
                     if (current !== undefined && current !== target) {
-                        // Move one step forward along the 36-tile loop
-                        next[p.playerId] = (current + 1) % 36;
+                        const dist = (target - current + 36) % 36;
+                        if (dist > 12) {
+                            // Instantly teleport for teleports (jail, card) or sync offsets
+                            next[p.playerId] = target;
+                        } else {
+                            // Move one step forward along the 36-tile loop
+                            next[p.playerId] = (current + 1) % 36;
+                        }
                         movedAny = true;
                     }
                 });
                 return movedAny ? next : prev;
             });
-        }, 180); // 180ms per hop is optimal for path-following animation!
+        }, delay);
 
         return () => clearTimeout(timer);
-    }, [game?.players, animatedPositions]);
+    }, [game?.players, animatedPositions, game?.lastRoll1, game?.lastRoll2]);
 
     useEffect(() => {
         setActionPending(false);
@@ -248,6 +236,46 @@ export default function GameBoard() {
             return cat && cat.group === group;
         });
         return groupProperties.some(p => p.developmentLevel > 0);
+    };
+
+    const getOwnedCountInGroup = (ownerId, groupName) => {
+        if (!ownerId || !groupName || !game?.properties) return 0;
+        return game.properties.filter(p => {
+            const cat = propertyCatalogById[p.propertyId];
+            return cat && cat.group === groupName && p.ownerId === ownerId && !p.mortgaged;
+        }).length;
+    };
+
+    const getGridFraction = (gridVal) => {
+        if (gridVal === 1) return 1;
+        if (gridVal === 10) return 11;
+        return gridVal + 0.5;
+    };
+
+    const getTileCenterCoords = (pos) => {
+        const grid = getGridArea(pos);
+        const colFr = getGridFraction(grid.gridColumn);
+        const rowFr = getGridFraction(grid.gridRow);
+        return {
+            left: (colFr / 12) * 100,
+            top: (rowFr / 12) * 100
+        };
+    };
+
+    const getAnimStepDelay = () => {
+        const rollTotal = (game?.lastRoll1 || 0) + (game?.lastRoll2 || 0);
+        const steps = rollTotal > 0 ? rollTotal : 7;
+        return Math.max(20, Math.round(300 / steps));
+    };
+
+    const getGroupCircleBg = (group) => {
+        if (!group) return 'rgba(255, 255, 255, 0.8)';
+        const g = group.toUpperCase();
+        if (g === 'WEST') return 'rgba(59, 130, 246, 0.8)'; // Blue
+        if (g === 'EAST') return 'rgba(255, 255, 255, 0.8)'; // White
+        if (g === 'SOUTH') return 'rgba(239, 68, 68, 0.8)'; // Red
+        if (g === 'NORTH') return 'rgba(148, 163, 184, 0.8)'; // Grey
+        return 'rgba(255, 255, 255, 0.8)';
     };
 
     const getPropertyImagePath = (name, type) => {
@@ -936,7 +964,16 @@ export default function GameBoard() {
                                         <>
                                             <div className="flex justify-between">
                                                 <span className="text-slate-500">Base Rent:</span>
-                                                <span className="font-semibold text-white">{formatMoney(turnPlayerProperty.rent[0])}</span>
+                                                <span className="font-semibold text-white">
+                                                    {(() => {
+                                                        const base = turnPlayerProperty.rent[0];
+                                                        const ownedCount = getOwnedCountInGroup(turnPlayerProperty.ownerId, turnPlayerProperty.group);
+                                                        if (ownedCount >= 3) {
+                                                            return `${formatMoney(base * 2)} (Doubled)`;
+                                                        }
+                                                        return formatMoney(base);
+                                                    })()}
+                                                </span>
                                             </div>
                                             <div className="flex justify-between">
                                                 <span className="text-slate-500">Rent 1 House:</span>
@@ -1054,15 +1091,7 @@ export default function GameBoard() {
                                                     </span>
                                                 </div>
                                             )}
-                                            {playersHere.length > 0 && (
-                                                <div className="absolute inset-0 flex items-center justify-center z-20">
-                                                    <div className="flex -space-x-2">
-                                                        {playersHere.map(p => (
-                                                            <BoardToken key={p.playerId} username={p.username} tokenColor={p.tokenColor} size={39} />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                            
                                         </>
                                     ) : (
                                         /* ══ NON-CORNER TILES ══ */
@@ -1138,7 +1167,7 @@ export default function GameBoard() {
                                                             {/* Inside face: circle icon centered, sitting on top edge (inwards) */}
                                                             {propState?.group && ['WEST', 'EAST', 'SOUTH', 'NORTH'].includes(propState.group.toUpperCase()) && (
                                                                 <div className="absolute left-1/2 -translate-x-1/2 z-30"
-                                                                    style={{ top: '-17px', width: '34px', height: '34px', borderRadius: '50%', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.8)', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    style={{ top: '-17px', width: '34px', height: '34px', borderRadius: '50%', border: 'none', backgroundColor: getGroupCircleBg(propState.group), overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <img src={`/images/${propState.group.toLowerCase()}.png`} alt="" style={{ width: '90%', height: '90%', objectFit: 'contain' }} />
                                                                 </div>
                                                             )}
@@ -1185,7 +1214,7 @@ export default function GameBoard() {
                                                             {/* Inside face: circle icon sitting on bottom edge (inwards) */}
                                                             {propState?.group && ['WEST', 'EAST', 'SOUTH', 'NORTH'].includes(propState.group.toUpperCase()) && (
                                                                 <div className="absolute left-1/2 -translate-x-1/2 z-30"
-                                                                    style={{ bottom: '-17px', width: '34px', height: '34px', borderRadius: '50%', border: 'none', backgroundColor: 'rgba(255, 255, 255, 0.8)', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    style={{ bottom: '-17px', width: '34px', height: '34px', borderRadius: '50%', border: 'none', backgroundColor: getGroupCircleBg(propState.group), overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                     <img src={`/images/${propState.group.toLowerCase()}.png`} alt="" style={{ width: '90%', height: '90%', objectFit: 'contain' }} />
                                                                 </div>
                                                             )}
@@ -1267,9 +1296,9 @@ export default function GameBoard() {
                                                                 transform: 'translateY(-50%)',
                                                                 width: '32px', height: '32px',
                                                                 borderRadius: '50%',
-                                                                border: 'none',
-                                                                backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                                                overflow: 'hidden',
+                                                                 border: 'none',
+                                                                 backgroundColor: getGroupCircleBg(propState.group),
+                                                                 overflow: 'hidden',
                                                                 boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                                                 // left col → circle on right (inside); right col → circle on left (inside)
@@ -1291,16 +1320,7 @@ export default function GameBoard() {
 
 
 
-                                            {/* Player tokens */}
-                                            {playersHere.length > 0 && (
-                                                <div className="absolute inset-0 flex items-center justify-center z-30">
-                                                    <div className="flex -space-x-1.5">
-                                                        {playersHere.map(p => (
-                                                            <BoardToken key={p.playerId} username={p.username} tokenColor={p.tokenColor} size={30} />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                            
                                         </>
                                     )}
                                 </div>
@@ -1533,6 +1553,51 @@ export default function GameBoard() {
                             </div>
                         </div>
 
+                        {/* Smooth path animated player tokens at the board level */}
+                        {game.players.filter(p => p.status !== 'BANKRUPT').map(p => {
+                            const animPos = animatedPositions[p.playerId] !== undefined ? animatedPositions[p.playerId] : p.position;
+                            const coords = getTileCenterCoords(animPos);
+                            
+                            // Calculate small offset if multiple players are on the same tile
+                            const playersOnSameTile = game.players.filter(pl => {
+                                const plAnim = animatedPositions[pl.playerId] !== undefined ? animatedPositions[pl.playerId] : pl.position;
+                                return plAnim === animPos && pl.status !== 'BANKRUPT';
+                            });
+                            // Sort stably to prevent swapping coordinates when list order changes
+                            playersOnSameTile.sort((a, b) => a.playerId.localeCompare(b.playerId));
+                            const idxOnTile = playersOnSameTile.findIndex(pl => pl.playerId === p.playerId);
+                            const totalOnTile = playersOnSameTile.length;
+                            
+                            // Align horizontally on top/bottom, vertically on left/right side tiles
+                            const side = getTileSide(animPos);
+                            let dx = 0;
+                            let dy = 0;
+                            if (totalOnTile > 1) {
+                                const offsetVal = (idxOnTile - (totalOnTile - 1) / 2) * 2.2;
+                                if (side === 'left' || side === 'right') {
+                                    dy = offsetVal;
+                                } else {
+                                    dx = offsetVal;
+                                }
+                            }
+                            
+                            return (
+                                <div
+                                    key={p.playerId}
+                                    className="absolute z-40"
+                                    style={{
+                                        left: `${coords.left + dx}%`,
+                                        top: `${coords.top + dy}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        transition: `left ${getAnimStepDelay()}ms linear, top ${getAnimStepDelay()}ms linear`,
+                                        pointerEvents: 'none',
+                                    }}
+                                >
+                                    <BoardToken username={p.username} tokenColor={p.tokenColor} size={28} />
+                                </div>
+                            );
+                        })}
+
                     </div>
                 </div>
             </div>
@@ -1578,7 +1643,7 @@ export default function GameBoard() {
 
                             {/* 5. Edge Circular Flag/Badge */}
                             {selectedProperty.group && ['WEST', 'EAST', 'SOUTH', 'NORTH'].includes(selectedProperty.group.toUpperCase()) && (
-                                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full shadow-lg z-30 overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'rgba(255, 255, 255, 0.8)', width: '100px', height: '100px' }}>
+                                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rounded-full shadow-lg z-30 overflow-hidden flex items-center justify-center" style={{ backgroundColor: getGroupCircleBg(selectedProperty.group), width: '100px', height: '100px' }}>
                                     <img 
                                         src={getPropertyImagePath(selectedProperty.propertyName || selectedProperty.name, selectedProperty.type)} 
                                         className="w-full h-full object-cover" 
@@ -1622,7 +1687,7 @@ export default function GameBoard() {
                                         <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mb-1.5">Rent Rates</p>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">Base Rent:</span>
-                                            <span className="font-medium text-white">{formatMoney(selectedProperty.rent[0])}</span>
+                                            <span className="font-medium text-white">{getOwnedCountInGroup(selectedProperty.ownerId, selectedProperty.group) >= 3 ? `${formatMoney(selectedProperty.rent[0] * 2)} (Doubled)` : formatMoney(selectedProperty.rent[0])}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-slate-500">With 1 House:</span>

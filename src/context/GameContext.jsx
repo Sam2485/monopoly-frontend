@@ -97,7 +97,7 @@ export const GameProvider = ({ children }) => {
                 userId: user?.id
             },
             debug: (str) => console.log('[STOMP]', str),
-            reconnectDelay: 5000,
+            reconnectDelay: 1000,
             heartbeatIncoming: 4000,
             heartbeatOutgoing: 4000,
         });
@@ -126,6 +126,7 @@ export const GameProvider = ({ children }) => {
             const activeGameId = gameId || roomId;
             if (activeGameId) {
                 subscribeToGame(client, activeGameId);
+                fetchGameState(activeGameId); // Sync game state immediately on connection / reconnection
             }
         };
 
@@ -430,11 +431,19 @@ export const GameProvider = ({ children }) => {
     };
 
     const updatePlayerState = (playerId, fields) => {
+        const cleanFields = {};
+        Object.keys(fields).forEach(key => {
+            if (fields[key] !== undefined && fields[key] !== null) {
+                cleanFields[key] = fields[key];
+            }
+        });
+        if (Object.keys(cleanFields).length === 0) return;
+
         setGame(prev => {
             if (!prev) return null;
             const updated = prev.players.map(p => {
-                if (p.playerId === playerId) {
-                    return { ...p, ...fields };
+                if (String(p.playerId).toLowerCase() === String(playerId).toLowerCase()) {
+                    return { ...p, ...cleanFields };
                 }
                 return p;
             });
@@ -591,6 +600,7 @@ export const GameProvider = ({ children }) => {
             if (state && state.players) {
                 state.players = state.players.map(p => ({
                     ...p,
+                    playerId: String(p.playerId).toLowerCase(),
                     position: p.boardPosition !== undefined ? p.boardPosition : p.position
                 }));
             }
@@ -754,6 +764,23 @@ export const GameProvider = ({ children }) => {
             throw e;
         }
     };
+
+    // Automatic Synchronization when the tab is focused or returns from background
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                const activeId = game?.gameId || room?.roomId;
+                if (activeId) {
+                    console.log('Visibility changed to visible. Fetching latest state...');
+                    fetchGameState(activeId);
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [game?.gameId, room?.roomId]);
 
     return (
         <GameContext.Provider value={{
